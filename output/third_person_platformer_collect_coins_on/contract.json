@@ -1,0 +1,221 @@
+{
+  "game_id": "third_person_platformer_collect_coins_on",
+  "prompt": "third-person platformer, collect coins on floating islands",
+
+  "interfaces": {
+    "ctx_extensions": [
+      {
+        "name": "modules.network.send",
+        "signature": "(type: string, payload: object) => void",
+        "description": "Send a message to the server (or loopback in singleplayer fallback)",
+        "set_on": "ctx.modules.network",
+        "provided_by": "network",
+        "consumed_by": ["player", "collectibles"]
+      },
+      {
+        "name": "modules.network.onMessage",
+        "signature": "(type: string, cb: (payload: object) => void) => void",
+        "description": "Register a handler for a server message type",
+        "set_on": "ctx.modules.network",
+        "provided_by": "network",
+        "consumed_by": ["player", "collectibles"]
+      },
+      {
+        "name": "modules.network.getSessionId",
+        "signature": "() => string",
+        "description": "Returns the local player's session ID",
+        "set_on": "ctx.modules.network",
+        "provided_by": "network",
+        "consumed_by": ["player", "collectibles", "hud"]
+      },
+      {
+        "name": "modules.player.getPosition",
+        "signature": "() => { x: number, y: number, z: number }",
+        "description": "Returns the local player's current world position for proximity checks and camera tracking",
+        "set_on": "ctx.modules.player",
+        "provided_by": "player",
+        "consumed_by": ["camera", "collectibles"]
+      },
+      {
+        "name": "modules.player.getVelocity",
+        "signature": "() => { x: number, y: number, z: number }",
+        "description": "Returns the local player's current velocity vector for camera smoothing",
+        "set_on": "ctx.modules.player",
+        "provided_by": "player",
+        "consumed_by": ["camera"]
+      },
+      {
+        "name": "getIslandPositions",
+        "signature": "() => Array<{ x: number, y: number, z: number, radius: number }>",
+        "description": "Returns array of island center positions and radii so other modules can place objects on islands",
+        "set_on": "ctx",
+        "provided_by": "environment",
+        "consumed_by": ["collectibles", "player"]
+      },
+      {
+        "name": "getTerrainHeight",
+        "signature": "(x: number, z: number) => number",
+        "description": "Returns the surface height at a given xz coordinate; returns -Infinity if over empty space (no island beneath)",
+        "set_on": "ctx",
+        "provided_by": "environment",
+        "consumed_by": ["player", "collectibles"]
+      }
+    ],
+    "events": [
+      {
+        "name": "coinCollected",
+        "payload": "{ coinId: string, playerId: string, position: { x: number, y: number, z: number } }",
+        "emitted_by": "collectibles",
+        "consumed_by": ["hud", "player"]
+      },
+      {
+        "name": "scoreUpdated",
+        "payload": "{ playerId: string, score: number, totalCoins: number }",
+        "emitted_by": "collectibles",
+        "consumed_by": ["hud"]
+      },
+      {
+        "name": "playerRespawn",
+        "payload": "{ playerId: string, position: { x: number, y: number, z: number } }",
+        "emitted_by": "player",
+        "consumed_by": ["camera", "hud"]
+      },
+      {
+        "name": "allCoinsCollected",
+        "payload": "{ winnerId: string, finalScore: number, timeElapsed: number }",
+        "emitted_by": "collectibles",
+        "consumed_by": ["hud", "player"]
+      },
+      {
+        "name": "playerFell",
+        "payload": "{ playerId: string }",
+        "emitted_by": "player",
+        "consumed_by": ["hud", "camera"]
+      }
+    ],
+    "mesh_registry": [
+      {
+        "key": "island_base",
+        "description": "Reusable floating island mesh (flattened cylinder/dome shape with rocky bottom), used as template for island instances",
+        "provided_by": "environment"
+      },
+      {
+        "key": "player_model",
+        "description": "Simple capsule-based player character mesh with color tinting per player",
+        "provided_by": "player"
+      },
+      {
+        "key": "coin_mesh",
+        "description": "Gold coin disc mesh with slight bevel, used as template for coin instances",
+        "provided_by": "collectibles"
+      }
+    ]
+  },
+
+  "network_protocol": {
+    "client_to_server": [
+      {
+        "type": "playerMove",
+        "payload": "{ x: number, y: number, z: number, vx: number, vy: number, vz: number, grounded: boolean }"
+      },
+      {
+        "type": "playerJump",
+        "payload": "{ x: number, y: number, z: number }"
+      },
+      {
+        "type": "collectCoin",
+        "payload": "{ coinId: string }"
+      }
+    ],
+    "server_to_client": [
+      {
+        "type": "__sessionId",
+        "payload": "{ sessionId: string }"
+      },
+      {
+        "type": "gameState",
+        "payload": "{ players: Record<string, { x: number, y: number, z: number, vx: number, vy: number, vz: number, score: number, grounded: boolean }>, coins: Array<{ id: string, x: number, y: number, z: number, collected: boolean }>, elapsed: number }"
+      },
+      {
+        "type": "playerJoined",
+        "payload": "{ sessionId: string, x: number, y: number, z: number }"
+      },
+      {
+        "type": "playerLeave",
+        "payload": "{ sessionId: string }"
+      },
+      {
+        "type": "coinCollected",
+        "payload": "{ coinId: string, playerId: string, score: number }"
+      },
+      {
+        "type": "gameOver",
+        "payload": "{ winnerId: string, scores: Record<string, number>, timeElapsed: number }"
+      }
+    ]
+  },
+
+  "gameplay_spec": {
+    "win_condition": "First player to collect all coins wins. In singleplayer, collect all coins to complete the level.",
+    "total_coins": 30,
+    "island_count": 7,
+    "player_config": {
+      "move_speed": 8,
+      "jump_force": 12,
+      "gravity": -30,
+      "spawn_position": { "x": 0, "y": 10, "z": 0 },
+      "fall_death_y": -20,
+      "respawn_delay_ms": 1000,
+      "max_jumps": 2
+    },
+    "collectible_config": {
+      "coin_radius": 0.5,
+      "pickup_distance": 1.8,
+      "spin_speed": 2.0,
+      "bob_amplitude": 0.3,
+      "bob_speed": 1.5,
+      "sparkle_on_collect": true
+    },
+    "island_config": {
+      "min_radius": 4,
+      "max_radius": 10,
+      "min_height": 2,
+      "max_height": 25,
+      "min_gap": 3,
+      "max_gap": 8,
+      "center_island_radius": 10
+    }
+  },
+
+  "multiplayer_spec": {
+    "max_players": 4,
+    "sync_rate_hz": 20,
+    "singleplayer_fallback": true,
+    "server_port": 2567
+  },
+
+  "visual_spec": {
+    "sky_color": "#87CEEB",
+    "fog_color": "#C8E6FF",
+    "fog_near": 50,
+    "fog_far": 200,
+    "sun_color": "#FFFAE6",
+    "sun_intensity": 1.4,
+    "sun_position": { "x": 50, "y": 80, "z": 30 },
+    "ambient_intensity": 0.6,
+    "bloom_strength": 0.3,
+    "bloom_radius": 0.4,
+    "bloom_threshold": 0.85,
+    "island_palette": ["#4CAF50", "#8BC34A", "#689F38", "#33691E"],
+    "coin_color": "#FFD700",
+    "coin_emissive": "#FFA000",
+    "player_colors": ["#FF5722", "#2196F3", "#9C27B0", "#FFEB3B"]
+  },
+
+  "contract_warnings": [
+    "Double-jump (max_jumps=2) requires client-side tracking; server trusts client jump count — potential cheat vector in competitive play.",
+    "getTerrainHeight returns -Infinity over gaps; player module must handle fall detection at y < fall_death_y.",
+    "Coin placement via getIslandPositions is deterministic from a seed; singleplayer fallback must use same seed logic as server for consistency.",
+    "coinCollected event is emitted locally on pickup for responsive HUD; server coinCollected message is authoritative and may reject stale pickups in multiplayer."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "game_id": "third_person_platformer_collect_coins_on",
+  "modules": [
+    "modules/network.js",
+    "modules/environment.js",
+    "modules/player.js",
+    "modules/camera.js",
+    "modules/collectibles.js",
+    "modules/hud.js"
+  ]
+}

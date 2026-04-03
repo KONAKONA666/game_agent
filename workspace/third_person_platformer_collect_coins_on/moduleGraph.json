@@ -1,0 +1,51 @@
+{
+  "game_id": "third_person_platformer_collect_coins_on",
+  "waves": [
+    {
+      "wave": "A",
+      "assignments": [
+        {
+          "name": "network",
+          "specialist": "network",
+          "depends_on": [],
+          "specialist_description": "Implements the network module that connects to the WebSocket server at ctx.wsUrl using ColyseusClient. Must expose three methods on ctx.modules.network: send(type, payload) to transmit messages, onMessage(type, cb) to register message handlers, and getSessionId() to return the local session ID. On build(), attempt connection and listen for the __sessionId message to store the session ID. Must implement a full singleplayer fallback: if the WebSocket connection fails or times out after 3 seconds, switch to loopback mode where send() directly invokes the matching onMessage handlers locally, and getSessionId() returns a generated UUID. The fallback must be seamless — no other module should need to know whether it is online or offline. Store registered handlers in a Map<string, Set<Function>> so multiple modules can listen to the same message type."
+        },
+        {
+          "name": "environment",
+          "specialist": "environment",
+          "depends_on": [],
+          "specialist_description": "Creates the floating island world. In build(), generate 7 islands as groups of THREE.Mesh objects (flattened cylinders for tops with rocky undersides using ConeGeometry inverted). The center island (radius 10) is at y=8 and serves as spawn. Remaining 6 islands are placed in a ring pattern at varying heights (2-25) and radii (4-10) with gaps jumpable by the player (3-8 units). Apply vertex color variation using the island_palette from visual_spec. Set up Rapier static rigid bodies with trimesh colliders for each island. Register the 'island_base' template mesh in ctx.meshRegistry. Set ctx.getTerrainHeight(x, z) to raycast downward and return the island surface height, or -Infinity if no island is below. Set ctx.getIslandPositions to return the array of island centers with radii. Configure scene fog (FogExp2 or linear) and sky color per visual_spec. Configure ctx.sunLight and ctx.hemiLight with visual_spec values. Optionally add simple cloud sprites or particles between islands for atmosphere."
+        },
+        {
+          "name": "player",
+          "specialist": "player",
+          "depends_on": [],
+          "specialist_description": "Handles the local player character and remote player ghosts. In build(), create a capsule-shaped mesh (CapsuleGeometry) tinted with the first player_color, register it as 'player_model' in ctx.meshRegistry, and create a Rapier dynamic rigid body with a capsule collider. Expose ctx.modules.player.getPosition() returning {x,y,z} of the local rigid body and ctx.modules.player.getVelocity() returning the velocity vector. Set up WASD/arrow keyboard input listeners for movement (move_speed=8) and Space for jumping (jump_force=12, max 2 jumps with ground-contact reset). In build(), register network handlers via ctx.modules.network.onMessage for 'playerJoined' (spawn a ghost capsule mesh with the appropriate player_color), 'playerLeave' (remove ghost), and 'gameState' (interpolate ghost positions). In update(dt), apply forces to the rigid body based on input, check grounded state via Rapier ray cast, send 'playerMove' via network at sync rate. Detect fall below fall_death_y (-20) and respawn at spawn_position, emitting 'playerRespawn' and 'playerFell' events in start() or update() only (never in build). In singleplayer, the player still functions fully without ghosts."
+        }
+      ]
+    },
+    {
+      "wave": "B",
+      "assignments": [
+        {
+          "name": "camera",
+          "specialist": "camera",
+          "depends_on": ["player"],
+          "specialist_description": "Implements a third-person orbit camera that follows the player. In build(), configure ctx.camera with a field of view of 60, near=0.1, far=300. Set initial offset behind and above the player (0, 6, -12). Register handlers for 'playerRespawn' event to snap camera to respawn position. In update(dt), smoothly interpolate camera position to follow ctx.modules.player.getPosition() using lerp (factor ~0.08). Apply slight look-ahead based on ctx.modules.player.getVelocity() so the camera leads in the direction of motion. Use a spring-damper model to avoid jitter. Perform a short Rapier raycast from player to desired camera position; if an island is between them, pull the camera closer to prevent clipping. Camera always looks at a point slightly above the player position (y+1.5). Optionally allow mouse drag to orbit and scroll to zoom (min distance 5, max 20) for enhanced control. Ensure bloom composer settings are applied per visual_spec (bloom_strength=0.3, bloom_radius=0.4, bloom_threshold=0.85)."
+        },
+        {
+          "name": "collectibles",
+          "specialist": "collectibles",
+          "depends_on": ["environment", "player", "network"],
+          "specialist_description": "Manages coin spawning, animation, and collection logic. In build(), create a gold coin mesh (CylinderGeometry flat disc, coin_color #FFD700, emissive #FFA000) and register as 'coin_mesh' in ctx.meshRegistry. Use ctx.getIslandPositions() to distribute 30 coins across islands — roughly proportional to island radius, with at least 2 per island. Place each coin at the island surface height (via ctx.getTerrainHeight) plus 1.0 unit. Create Rapier sensor colliders (no physics response) for each coin. Track coin state as an array with id, position, and collected flag. Register network handler for server 'coinCollected' to mark coins collected by other players and hide them. In update(dt), spin all visible coins around Y axis (spin_speed=2.0 rad/s) and bob up/down (bob_amplitude=0.3, bob_speed=1.5). Check proximity of ctx.modules.player.getPosition() to each uncollected coin (pickup_distance=1.8); on pickup, hide the coin mesh, disable its sensor, send 'collectCoin' to server via network, dispatch local 'coinCollected' and 'scoreUpdated' events. Track local score; when all 30 coins are collected, dispatch 'allCoinsCollected' event. In singleplayer fallback, collection is purely local with no server validation."
+        },
+        {
+          "name": "hud",
+          "specialist": "hud",
+          "depends_on": ["player", "collectibles"],
+          "specialist_description": "Renders the in-game HUD using DOM elements on ctx.uiOverlay. In build(), create styled div elements for: coin counter (top-right, showing 'Coins: 0 / 30' with a gold coin icon), player score list (top-left, showing all players and their scores), and a center notification area for events. Listen for 'scoreUpdated' event to update coin counter. Listen for 'coinCollected' event to show a brief floating '+1' animation near the coin counter. Listen for 'allCoinsCollected' event to display a victory banner ('You Win!' or '{player} collected all coins!'). Listen for 'playerFell' event to flash a 'Respawning...' message. Listen for 'playerRespawn' to clear the respawn message. Use CSS transitions and animations for smooth appearance — no canvas rendering, purely DOM-based. Ensure text is legible with text-shadow or semi-transparent background panels. In dispose(), remove all created DOM elements from ctx.uiOverlay."
+        }
+      ]
+    }
+  ]
+}
