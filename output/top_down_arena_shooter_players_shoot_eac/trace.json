@@ -1,0 +1,104 @@
+{
+  "game_id": "top_down_arena_shooter_players_shoot_eac",
+  "prompt": "top-down arena shooter, players shoot each other for points",
+  "timestamp": "2026-04-03T12:33:35.716429+00:00",
+  "phases": {
+    "planning": {
+      "started_at": 1775219615.7164538,
+      "ended_at": 1775219713.8633306,
+      "duration_s": 98.15,
+      "modules": [
+        "network",
+        "arena",
+        "player",
+        "projectile",
+        "combat",
+        "hud"
+      ],
+      "waves": 2,
+      "specialists": [
+        "player",
+        "network",
+        "hud",
+        "projectile",
+        "combat",
+        "arena"
+      ]
+    },
+    "parallel_build": {
+      "wave_A": {
+        "agents": [
+          {
+            "specialist": "network",
+            "started_at": 1775219713.8638685,
+            "ended_at": 1775219749.9834802,
+            "duration_s": 36.12,
+            "modules_produced": [
+              "network"
+            ],
+            "missing": []
+          },
+          {
+            "specialist": "arena",
+            "started_at": 1775219713.8644345,
+            "ended_at": 1775219755.651354,
+            "duration_s": 41.79,
+            "modules_produced": [
+              "arena"
+            ],
+            "missing": []
+          },
+          {
+            "specialist": "player",
+            "started_at": 1775219713.8649614,
+            "ended_at": 1775219781.1474004,
+            "duration_s": 67.28,
+            "modules_produced": [
+              "player"
+            ],
+            "missing": []
+          }
+        ],
+        "parallel": true
+      },
+      "wave_B": {
+        "agents": [
+          {
+            "specialist": "combat",
+            "started_at": 1775219781.1491332,
+            "ended_at": 1775219811.9958162,
+            "duration_s": 30.85,
+            "modules_produced": [
+              "combat"
+            ],
+            "missing": []
+          },
+          {
+            "specialist": "projectile",
+            "started_at": 1775219781.1483557,
+            "ended_at": 1775219818.504366,
+            "duration_s": 37.36,
+            "modules_produced": [
+              "projectile"
+            ],
+            "missing": []
+          },
+          {
+            "specialist": "hud",
+            "started_at": 1775219781.1493852,
+            "ended_at": 1775219840.954131,
+            "duration_s": 59.8,
+            "modules_produced": [
+              "hud"
+            ],
+            "missing": []
+          }
+        ],
+        "parallel": true
+      }
+    }
+  },
+  "timeout": true,
+  "timeout_error": "Pipeline deadline exceeded (0s over budget)",
+  "total_duration_s": 600.04
+}

@@ -1,0 +1,266 @@
+{
+  "game_id": "top_down_arena_shooter_players_shoot_eac",
+  "prompt": "top-down arena shooter, players shoot each other for points",
+
+  "interfaces": {
+    "ctx_extensions": [
+      {
+        "name": "network.send",
+        "signature": "(type: string, payload: object) => void",
+        "description": "Send a message to the server (or loopback in singleplayer fallback)",
+        "set_on": "ctx.modules.network",
+        "provided_by": "network",
+        "consumed_by": ["player", "projectile", "combat"]
+      },
+      {
+        "name": "network.onMessage",
+        "signature": "(type: string, cb: (payload: object) => void) => void",
+        "description": "Register a callback for a specific server message type",
+        "set_on": "ctx.modules.network",
+        "provided_by": "network",
+        "consumed_by": ["player", "projectile", "combat"]
+      },
+      {
+        "name": "network.getSessionId",
+        "signature": "() => string",
+        "description": "Returns the local player's unique session ID",
+        "set_on": "ctx.modules.network",
+        "provided_by": "network",
+        "consumed_by": ["player", "combat", "hud"]
+      },
+      {
+        "name": "getTerrainHeight",
+        "signature": "(x: number, z: number) => number",
+        "description": "Returns the ground Y at (x,z). Always 0 for this flat arena but required by harness convention.",
+        "set_on": "ctx",
+        "provided_by": "arena",
+        "consumed_by": ["player", "projectile"]
+      },
+      {
+        "name": "player.getPosition",
+        "signature": "(sessionId?: string) => { x: number, y: number, z: number } | null",
+        "description": "Returns world position of the local player or a specific player by sessionId. Returns null if player not found.",
+        "set_on": "ctx.modules.player",
+        "provided_by": "player",
+        "consumed_by": ["projectile", "combat", "hud"]
+      },
+      {
+        "name": "player.getHealth",
+        "signature": "(sessionId?: string) => number",
+        "description": "Returns current health (0-100) of local player or specified player",
+        "set_on": "ctx.modules.player",
+        "provided_by": "player",
+        "consumed_by": ["combat", "hud"]
+      },
+      {
+        "name": "player.getAllPlayers",
+        "signature": "() => Map<string, { x: number, y: number, z: number, rotation: number }>",
+        "description": "Returns map of all active player positions and rotations keyed by sessionId",
+        "set_on": "ctx.modules.player",
+        "provided_by": "player",
+        "consumed_by": ["projectile", "combat"]
+      },
+      {
+        "name": "player.respawn",
+        "signature": "(sessionId: string) => void",
+        "description": "Teleports the specified player to a random spawn point and resets health to 100",
+        "set_on": "ctx.modules.player",
+        "provided_by": "player",
+        "consumed_by": ["combat"]
+      }
+    ],
+    "events": [
+      {
+        "name": "playerShoot",
+        "payload": "{ sessionId: string, originX: number, originZ: number, dirX: number, dirZ: number }",
+        "emitted_by": "player",
+        "consumed_by": ["projectile"]
+      },
+      {
+        "name": "projectileHit",
+        "payload": "{ shooterSessionId: string, victimSessionId: string, damage: number }",
+        "emitted_by": "projectile",
+        "consumed_by": ["combat"]
+      },
+      {
+        "name": "playerDamaged",
+        "payload": "{ sessionId: string, newHealth: number, attackerSessionId: string }",
+        "emitted_by": "combat",
+        "consumed_by": ["player", "hud"]
+      },
+      {
+        "name": "playerKilled",
+        "payload": "{ victimSessionId: string, killerSessionId: string }",
+        "emitted_by": "combat",
+        "consumed_by": ["player", "hud"]
+      },
+      {
+        "name": "scoreUpdated",
+        "payload": "{ scores: Record<string, number> }",
+        "emitted_by": "combat",
+        "consumed_by": ["hud"]
+      },
+      {
+        "name": "playerRespawned",
+        "payload": "{ sessionId: string, x: number, z: number }",
+        "emitted_by": "player",
+        "consumed_by": ["hud"]
+      }
+    ],
+    "mesh_registry": [
+      {
+        "key": "arena_floor",
+        "description": "Flat rectangular arena floor mesh with grid-line material for spatial reference",
+        "provided_by": "arena"
+      },
+      {
+        "key": "arena_wall",
+        "description": "Wall segments forming the arena boundary (group of box meshes)",
+        "provided_by": "arena"
+      },
+      {
+        "key": "arena_obstacle",
+        "description": "Cover obstacles placed around the arena (box geometry with distinct material)",
+        "provided_by": "arena"
+      },
+      {
+        "key": "player_mesh",
+        "description": "Template mesh for a player character: small cylinder body with a cone 'nose' indicating facing direction",
+        "provided_by": "player"
+      },
+      {
+        "key": "projectile_mesh",
+        "description": "Small sphere mesh used as bullet template, cloned per active projectile",
+        "provided_by": "projectile"
+      }
+    ]
+  },
+
+  "network_protocol": {
+    "client_to_server": [
+      {
+        "type": "playerMove",
+        "payload": "{ x: number, z: number, rotation: number }"
+      },
+      {
+        "type": "playerShoot",
+        "payload": "{ originX: number, originZ: number, dirX: number, dirZ: number }"
+      },
+      {
+        "type": "hit",
+        "payload": "{ victimSessionId: string, damage: number }"
+      }
+    ],
+    "server_to_client": [
+      {
+        "type": "__sessionId",
+        "payload": "{ sessionId: string }"
+      },
+      {
+        "type": "gameState",
+        "payload": "{ players: Record<string, { x: number, z: number, rotation: number, health: number, score: number }> }"
+      },
+      {
+        "type": "playerJoined",
+        "payload": "{ sessionId: string, x: number, z: number }"
+      },
+      {
+        "type": "playerLeave",
+        "payload": "{ sessionId: string }"
+      },
+      {
+        "type": "playerMoved",
+        "payload": "{ sessionId: string, x: number, z: number, rotation: number }"
+      },
+      {
+        "type": "playerShot",
+        "payload": "{ sessionId: string, originX: number, originZ: number, dirX: number, dirZ: number }"
+      },
+      {
+        "type": "playerHit",
+        "payload": "{ victimSessionId: string, attackerSessionId: string, newHealth: number }"
+      },
+      {
+        "type": "playerDied",
+        "payload": "{ victimSessionId: string, killerSessionId: string }"
+      },
+      {
+        "type": "scoreUpdate",
+        "payload": "{ scores: Record<string, number> }"
+      }
+    ]
+  },
+
+  "gameplay_spec": {
+    "win_condition": "No fixed win — highest score wins. Optional: first to 20 kills.",
+    "kill_score": 1,
+    "player_config": {
+      "max_health": 100,
+      "speed": 8,
+      "rotation_speed": "instant (face mouse cursor)",
+      "spawn_points": [
+        { "x": -12, "z": -12 },
+        { "x": 12, "z": -12 },
+        { "x": -12, "z": 12 },
+        { "x": 12, "z": 12 }
+      ],
+      "respawn_delay_ms": 2000,
+      "invincibility_after_spawn_ms": 1500
+    },
+    "projectile_config": {
+      "damage": 25,
+      "speed": 20,
+      "max_lifetime_s": 2,
+      "fire_rate_ms": 250,
+      "radius": 0.15
+    },
+    "arena_config": {
+      "width": 30,
+      "depth": 30,
+      "wall_height": 2,
+      "obstacle_count": 8,
+      "obstacle_size": { "min": 1.5, "max": 3 }
+    },
+    "camera": {
+      "type": "orthographic-top-down",
+      "height": 25,
+      "follow_player": true
+    }
+  },
+
+  "multiplayer_spec": {
+    "max_players": 4,
+    "sync_rate_hz": 20,
+    "singleplayer_fallback": true,
+    "server_port": 2567
+  },
+
+  "visual_spec": {
+    "sky_color": "#1a1a2e",
+    "fog_color": "#1a1a2e",
+    "fog_near": 30,
+    "fog_far": 60,
+    "sun_color": "#ffffff",
+    "sun_intensity": 0.4,
+    "ambient_color": "#4a4a8a",
+    "ambient_intensity": 0.6,
+    "bloom_enabled": true,
+    "bloom_strength": 0.8,
+    "bloom_radius": 0.4,
+    "bloom_threshold": 0.6,
+    "floor_color": "#0e0e1a",
+    "grid_color": "#2a2a5e",
+    "wall_color": "#3a3a6e",
+    "obstacle_color": "#2e2e5a",
+    "player_colors": ["#00ffff", "#ff00ff", "#ffff00", "#00ff00"],
+    "projectile_color": "#ff4444",
+    "projectile_emissive": "#ff0000"
+  },
+
+  "contract_warnings": [
+    "Top-down camera: the harness provides a PerspectiveCamera. The arena module must reposition it to a high overhead view and optionally switch to orthographic if available, or simulate top-down with a high-FOV perspective cam.",
+    "Hit detection is client-authoritative for singleplayer fallback. In multiplayer mode the server should validate hits to prevent cheating.",
+    "playerShoot event is emitted in start() input handlers, not build(), so all listeners will be registered in time.",
+    "Obstacle positions are generated procedurally — all clients must use the same seed (derived from gameState) or receive positions from server."
+  ]
+}

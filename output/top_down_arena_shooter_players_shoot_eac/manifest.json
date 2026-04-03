@@ -1,0 +1,11 @@
+{
+  "game_id": "top_down_arena_shooter_players_shoot_eac",
+  "modules": [
+    "modules/network.js",
+    "modules/arena.js",
+    "modules/player.js",
+    "modules/projectile.js",
+    "modules/combat.js",
+    "modules/hud.js"
+  ]
+}
