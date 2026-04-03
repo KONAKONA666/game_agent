@@ -1,0 +1,177 @@
+{
+  "game_id": "island_coins",
+  "prompt": "third-person platformer, collect coins on floating islands",
+
+  "interfaces": {
+    "ctx_extensions": [
+      {
+        "name": "getTerrainHeight",
+        "signature": "(x: number, z: number) => number",
+        "description": "Returns Y height of the nearest platform surface at world (x,z). Returns -Infinity if no platform beneath that point.",
+        "set_on": "ctx.getTerrainHeight",
+        "provided_by": "environment",
+        "consumed_by": ["player", "gameplay"]
+      },
+      {
+        "name": "islandPositions",
+        "signature": "Array<{x: number, y: number, z: number, hw: number, hd: number}>",
+        "description": "Array of island center positions and half-extents (hw=halfWidth, hd=halfDepth). Set during environment.build().",
+        "set_on": "ctx.islandPositions",
+        "provided_by": "environment",
+        "consumed_by": ["gameplay"]
+      },
+      {
+        "name": "network.send",
+        "signature": "(type: string, payload: object) => void",
+        "description": "Send a typed message to the server.",
+        "set_on": "ctx.modules.network.send",
+        "provided_by": "network",
+        "consumed_by": ["player", "gameplay"]
+      },
+      {
+        "name": "network.onMessage",
+        "signature": "(type: string, callback: (payload: object) => void) => void",
+        "description": "Register a handler for a server message type.",
+        "set_on": "ctx.modules.network.onMessage",
+        "provided_by": "network",
+        "consumed_by": ["player", "gameplay"]
+      },
+      {
+        "name": "network.getSessionId",
+        "signature": "() => string",
+        "description": "Returns the local player's session ID.",
+        "set_on": "ctx.modules.network.getSessionId",
+        "provided_by": "network",
+        "consumed_by": ["player", "gameplay", "ui"]
+      },
+      {
+        "name": "player.getPosition",
+        "signature": "() => {x: number, y: number, z: number}",
+        "description": "Returns the local player's current world position.",
+        "set_on": "ctx.modules.player.getPosition",
+        "provided_by": "player",
+        "consumed_by": ["gameplay"]
+      }
+    ],
+
+    "events": [
+      {
+        "name": "coin:collected",
+        "payload": "{ coinId: string, playerId: string, position: {x: number, y: number, z: number} }",
+        "emitted_by": "gameplay",
+        "consumed_by": ["ui"]
+      },
+      {
+        "name": "score:updated",
+        "payload": "{ playerId: string, score: number, scores: {[sessionId: string]: number} }",
+        "emitted_by": "gameplay",
+        "consumed_by": ["ui"]
+      },
+      {
+        "name": "player:spawned",
+        "payload": "{ playerId: string, position: {x: number, y: number, z: number} }",
+        "emitted_by": "player",
+        "consumed_by": ["ui", "gameplay"]
+      },
+      {
+        "name": "player:died",
+        "payload": "{ playerId: string }",
+        "emitted_by": "player",
+        "consumed_by": ["ui"]
+      },
+      {
+        "name": "network:connected",
+        "payload": "{ sessionId: string }",
+        "emitted_by": "network",
+        "consumed_by": ["player", "gameplay", "ui"]
+      },
+      {
+        "name": "network:playerJoined",
+        "payload": "{ sessionId: string }",
+        "emitted_by": "network",
+        "consumed_by": ["player", "ui"]
+      },
+      {
+        "name": "network:playerLeft",
+        "payload": "{ sessionId: string }",
+        "emitted_by": "network",
+        "consumed_by": ["player", "ui"]
+      },
+      {
+        "name": "game:won",
+        "payload": "{ winnerId: string, score: number }",
+        "emitted_by": "gameplay",
+        "consumed_by": ["ui"]
+      }
+    ],
+
+    "mesh_registry": [
+      { "key": "island_base", "description": "Reusable island platform template mesh", "provided_by": "environment" },
+      { "key": "coin", "description": "Gold coin mesh template (torus)", "provided_by": "gameplay" },
+      { "key": "player_capsule", "description": "Player character capsule mesh", "provided_by": "player" }
+    ]
+  },
+
+  "network_protocol": {
+    "client_to_server": [
+      { "type": "playerMove", "payload": "{ x: number, y: number, z: number, rotY: number }" },
+      { "type": "collectCoin", "payload": "{ coinId: string }" }
+    ],
+    "server_to_client": [
+      { "type": "__sessionId", "payload": "string (session id)" },
+      { "type": "gameState", "payload": "{ collectedCoins: string[], scores: {[sessionId]: number}, players: string[] }" },
+      { "type": "playerState", "payload": "{ sessionId: string, x: number, y: number, z: number, rotY: number }" },
+      { "type": "coinCollected", "payload": "{ coinId: string, playerId: string }" },
+      { "type": "scoreUpdate", "payload": "{ scores: {[sessionId]: number} }" },
+      { "type": "playerJoined", "payload": "{ sessionId: string }" },
+      { "type": "playerLeave", "payload": "{ sessionId: string }" }
+    ]
+  },
+
+  "gameplay_spec": {
+    "win_condition": "First player to collect 10 coins wins",
+    "coins_to_win": 10,
+    "total_coins": 20,
+    "player_config": {
+      "speed": 8,
+      "jump_force": 12,
+      "spawn_position": { "x": 0, "y": 15, "z": 0 }
+    },
+    "collectible_config": {
+      "collect_radius": 2.0,
+      "rotate_speed": 2,
+      "bob_amplitude": 0.3,
+      "bob_speed": 2
+    }
+  },
+
+  "multiplayer_spec": {
+    "max_players": 4,
+    "sync_rate_hz": 20,
+    "singleplayer_fallback": true,
+    "server_port": 2567
+  },
+
+  "visual_spec": {
+    "sky_color": "#87CEEB",
+    "fog_color": "#87CEEB",
+    "fog_near": 50,
+    "fog_far": 200,
+    "sun_color": "#FFFFFF",
+    "sun_intensity": 1.5,
+    "sun_position": { "x": 50, "y": 100, "z": 50 },
+    "hemi_sky_color": "#87CEEB",
+    "hemi_ground_color": "#8B4513",
+    "hemi_intensity": 0.6,
+    "bloom_strength": 0.3,
+    "bloom_radius": 0.4,
+    "bloom_threshold": 0.85
+  },
+
+  "contract_warnings": [
+    "Rapier WASM must be initialized before any physics module runs — harness handles this.",
+    "ctx.getTerrainHeight and ctx.islandPositions are set by environment.build() — modules in Wave B can rely on these in build() since environment builds first via manifest order.",
+    "Network module must gracefully handle server being unavailable (singleplayer fallback).",
+    "Player module must expose getPosition() so gameplay can check coin proximity."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "game_id": "island_coins",
+  "modules": [
+    "modules/environment.js",
+    "modules/network.js",
+    "modules/ui.js",
+    "modules/player.js",
+    "modules/gameplay.js"
+  ]
+}
